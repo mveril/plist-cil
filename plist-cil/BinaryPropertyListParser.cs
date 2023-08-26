@@ -1,4 +1,4 @@
-﻿// plist-cil - An open source library to parse and generate property lists for .NET
+// plist-cil - An open source library to parse and generate property lists for .NET
 // Copyright (C) 2015 Natalia Portillo
 //
 // This code is based on:
@@ -103,7 +103,11 @@ namespace Claunia.PropertyList
                bytes[4]     != 's' ||
                bytes[5]     != 't')
             {
+#if NATIVE_SPAN
+                string magic = Encoding.ASCII.GetString(bytes.Slice(0, 8));
+#else
                 string magic = Encoding.ASCII.GetString(bytes.Slice(0, 8).ToArray());
+#endif
 
                 throw new PropertyListFormatException("The given data is no binary property list. Wrong magic bytes: " +
                                                       magic);
