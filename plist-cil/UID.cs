@@ -1,4 +1,4 @@
-﻿// plist-cil - An open source library to parse and generate property lists for .NET
+// plist-cil - An open source library to parse and generate property lists for .NET
 // Copyright (C) 2015 Natalia Portillo
 //
 // This code is based on:
@@ -25,6 +25,7 @@
 
 using System;
 using System.Buffers.Binary;
+using System.CodeDom.Compiler;
 using System.Text;
 
 namespace Claunia.PropertyList
@@ -134,24 +135,18 @@ namespace Claunia.PropertyList
         ///     UIDs are represented as dictionaries in XML property lists, where the key is always <c>CF$UID</c> and the
         ///     value is the integer representation of the UID.
         /// </summary>
-        /// <param name="xml">The xml StringBuilder</param>
-        /// <param name="level">The indentation level</param>
-        internal override void ToXml(StringBuilder xml, int level)
+        /// <param name="xml">The xml IndentedTextWriter</param>
+        internal override void ToXml(IndentedTextWriter xml)
         {
-            Indent(xml, level);
-            xml.Append("<dict>");
-            xml.AppendLine();
+            xml.Indent++;
+            xml.WriteLine("<dict>");
 
-            Indent(xml, level + 1);
-            xml.Append("<key>CF$UID</key>");
-            xml.AppendLine();
+            xml.WriteLine("<key>CF$UID</key>");
 
-            Indent(xml, level + 1);
-            xml.Append($"<integer>{value}</integer>");
-            xml.AppendLine();
+            xml.Indent--;
+            xml.WriteLine($"<integer>{value}</integer>");
 
-            Indent(xml, level);
-            xml.Append("</dict>");
+            xml.Write("</dict>");
         }
 
         internal override void ToBinary(BinaryPropertyListWriter outPlist)
@@ -162,20 +157,19 @@ namespace Claunia.PropertyList
             outPlist.Write(bytes);
         }
 
-        internal override void ToASCII(StringBuilder ascii, int level)
+        internal override void ToASCII(IndentedTextWriter ascii)
         {
-            Indent(ascii, level);
-            ascii.Append("\"");
+            ascii.Write("\"");
             Span<byte> bytes = stackalloc byte[ByteCount];
             GetBytes(bytes);
 
             foreach(byte b in bytes)
-                ascii.Append($"{b:x2}");
+                ascii.Write($"{b:x2}");
 
-            ascii.Append("\"");
+            ascii.Write("\"");
         }
 
-        internal override void ToASCIIGnuStep(StringBuilder ascii, int level) => ToASCII(ascii, level);
+        internal override void ToASCIIGnuStep(IndentedTextWriter ascii) => ToASCII(ascii);
 
         /// <summary>
         ///     Determines whether the specified <see cref="Claunia.PropertyList.NSObject" /> is equal to the current

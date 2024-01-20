@@ -1,4 +1,4 @@
-﻿// plist-cil - An open source library to parse and generate property lists for .NET
+// plist-cil - An open source library to parse and generate property lists for .NET
 // Copyright (C) 2015 Natalia Portillo
 //
 // This code is based on:
@@ -24,8 +24,10 @@
 // SOFTWARE.
 
 using System;
+using System.CodeDom.Compiler;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 
 namespace Claunia.PropertyList
@@ -284,16 +286,13 @@ namespace Claunia.PropertyList
             return hash;
         }
 
-        internal override void ToXml(StringBuilder xml, int level)
+        internal override void ToXml(IndentedTextWriter xml)
         {
-            Indent(xml, level);
-            xml.Append("<dict>");
-            xml.Append(NEWLINE);
-
+            xml.WriteLine("<dict>");
+            xml.Indent++;
             foreach(KeyValuePair<string, NSObject> kvp in dict)
             {
-                Indent(xml, level + 1);
-                xml.Append("<key>");
+                xml.Write("<key>");
 
                 //According to http://www.w3.org/TR/REC-xml/#syntax node values must not
                 //contain the characters < or &. Also the > character should be escaped.
@@ -301,21 +300,18 @@ namespace Claunia.PropertyList
                    kvp.Key.Contains("<") ||
                    kvp.Key.Contains(">"))
                 {
-                    xml.Append("<![CDATA[");
-                    xml.Append(kvp.Key.Replace("]]>", "]]]]><![CDATA[>"));
-                    xml.Append("]]>");
+                    xml.Write("<![CDATA[");
+                    xml.Write(kvp.Key.Replace("]]>", "]]]]><![CDATA[>"));
+                    xml.Write("]]>");
                 }
                 else
-                    xml.Append(kvp.Key);
-
-                xml.Append("</key>");
-                xml.Append(NEWLINE);
-                kvp.Value.ToXml(xml, level + 1);
-                xml.Append(NEWLINE);
+                    xml.Write(kvp.Key);
+                    xml.WriteLine("</key>");
+                    kvp.Value.ToXml(xml);
+                    xml.WriteLine();
             }
-
-            Indent(xml, level);
-            xml.Append("</dict>");
+            xml.Indent--;
+            xml.Write("</dict>");
         }
 
         internal override void AssignIDs(BinaryPropertyListWriter outPlist)
@@ -349,11 +345,24 @@ namespace Claunia.PropertyList
         /// <returns>ASCII representation of this object.</returns>
         public string ToASCIIPropertyList()
         {
-            var ascii = new StringBuilder();
-            ToASCII(ascii, 0);
-            ascii.Append(NEWLINE);
+            var writer = new StringWriter() { NewLine = NEWLINE };
+            ToASCIIPropertyList(writer);
+            return writer.ToString();
+        }
 
-            return ascii.ToString();
+        /// <summary>
+        ///     Generates a valid ASCII property list which has this NSDictionary as its root object. The generated property
+        ///     list complies with the format as described in
+        ///     https://developer.apple.com/library/mac/#documentation/Cocoa/Conceptual/PropertyLists/OldStylePlists/OldStylePLists.html
+        ///     Property List Programming Guide - Old-Style ASCII Property Lists.
+        /// </summary>
+        /// <param name="writer">The TextWriter to write on</param>
+        public void ToASCIIPropertyList(TextWriter writer)
+        {
+            var counting = new CountingTextWriter(writer);
+            IndentedTextWriter ascii = CreateIndentedTextWriter(counting);
+            ToASCII(ascii);
+            ascii.WriteLine();
         }
 
         /// <summary>
@@ -365,77 +374,85 @@ namespace Claunia.PropertyList
         /// <returns>GnuStep ASCII representation of this object.</returns>
         public string ToGnuStepASCIIPropertyList()
         {
-            var ascii = new StringBuilder();
-            ToASCIIGnuStep(ascii, 0);
-            ascii.Append(NEWLINE);
-
-            return ascii.ToString();
+            var writer = new StringWriter() { NewLine = NEWLINE };
+            ToGnuStepASCIIPropertyList(writer);
+            return writer.ToString();
         }
 
-        internal override void ToASCII(StringBuilder ascii, int level)
+        /// <summary>
+        ///     Generates a valid ASCII property list in GnuStep format which has this NSDictionary as its root object. The
+        ///     generated property list complies with the format as described in
+        ///     http://www.gnustep.org/resources/documentation/Developer/Base/Reference/NSPropertyList.html GnuStep -
+        ///     NSPropertyListSerialization class documentation.
+        /// </summary>
+        /// <param name="writer">The TextWriter to write on</param>
+        public void ToGnuStepASCIIPropertyList(TextWriter writer)
         {
-            Indent(ascii, level);
-            ascii.Append(ASCIIPropertyListParser.DICTIONARY_BEGIN_TOKEN);
-            ascii.Append(NEWLINE);
+            var counting = new CountingTextWriter(writer);
+            IndentedTextWriter ascii = CreateIndentedTextWriter(counting);
+            ToASCIIGnuStep(ascii);
+            ascii.WriteLine();
+        }
 
+        internal override void ToASCII(IndentedTextWriter ascii)
+        {
+            ascii.WriteLine(ASCIIPropertyListParser.DICTIONARY_BEGIN_TOKEN);
+            ascii.Indent++;
             foreach(string key in Keys)
             {
                 NSObject val = ObjectForKey(key);
-                Indent(ascii, level + 1);
-                ascii.Append("\"");
-                ascii.Append(NSString.EscapeStringForASCII(key));
-                ascii.Append("\" =");
+                ascii.Write("\"");
+                ascii.Write(NSString.EscapeStringForASCII(key));
+                ascii.Write("\" =");
 
                 if(val is NSDictionary or NSArray or NSData)
                 {
-                    ascii.Append(NEWLINE);
-                    val.ToASCII(ascii, level + 2);
+                    ascii.WriteLine();
+                    ascii.Indent++;
+                    val.ToASCII(ascii);
+                    ascii.Indent--;
                 }
                 else
                 {
-                    ascii.Append(" ");
-                    val.ToASCII(ascii, 0);
+                    ascii.Write(" ");
+                    val.ToASCII(ascii);
                 }
 
-                ascii.Append(ASCIIPropertyListParser.DICTIONARY_ITEM_DELIMITER_TOKEN);
-                ascii.Append(NEWLINE);
+                ascii.WriteLine(ASCIIPropertyListParser.DICTIONARY_ITEM_DELIMITER_TOKEN);
             }
-
-            Indent(ascii, level);
-            ascii.Append(ASCIIPropertyListParser.DICTIONARY_END_TOKEN);
+            ascii.Indent--;
+            ascii.Write(ASCIIPropertyListParser.DICTIONARY_END_TOKEN);
         }
 
-        internal override void ToASCIIGnuStep(StringBuilder ascii, int level)
+        internal override void ToASCIIGnuStep(IndentedTextWriter ascii)
         {
-            Indent(ascii, level);
-            ascii.Append(ASCIIPropertyListParser.DICTIONARY_BEGIN_TOKEN);
-            ascii.Append(NEWLINE);
-
+            ascii.WriteLine(ASCIIPropertyListParser.DICTIONARY_BEGIN_TOKEN);
+            ascii.Indent++;
             foreach(string key in Keys)
             {
                 NSObject val = ObjectForKey(key);
-                Indent(ascii, level + 1);
-                ascii.Append("\"");
-                ascii.Append(NSString.EscapeStringForASCII(key));
-                ascii.Append("\" =");
+                ascii.Write("\"");
+                ascii.Write(NSString.EscapeStringForASCII(key));
+                ascii.Write("\" =");
 
                 if(val is NSDictionary or NSArray or NSData)
                 {
-                    ascii.Append(NEWLINE);
-                    val.ToASCIIGnuStep(ascii, level + 2);
+                    ascii.WriteLine();
+                    ascii.Indent++;
+                    val.ToASCIIGnuStep(ascii);
+                    ascii.Indent--;
                 }
                 else
                 {
-                    ascii.Append(" ");
-                    val.ToASCIIGnuStep(ascii, 0);
+                    ascii.Write(" ");
+                    val.ToASCIIGnuStep(ascii);
                 }
 
-                ascii.Append(ASCIIPropertyListParser.DICTIONARY_ITEM_DELIMITER_TOKEN);
-                ascii.Append(NEWLINE);
+                ascii.Write(ASCIIPropertyListParser.DICTIONARY_ITEM_DELIMITER_TOKEN);
+                ascii.WriteLine();
             }
 
-            Indent(ascii, level);
-            ascii.Append(ASCIIPropertyListParser.DICTIONARY_END_TOKEN);
+            ascii.Write(ASCIIPropertyListParser.DICTIONARY_END_TOKEN);
         }
 
         #region IDictionary implementation

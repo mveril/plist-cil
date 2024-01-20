@@ -1,4 +1,4 @@
-﻿// plist-cil - An open source library to parse and generate property lists for .NET
+// plist-cil - An open source library to parse and generate property lists for .NET
 // Copyright (C) 2015 Natalia Portillo
 //
 // This code is based on:
@@ -24,7 +24,9 @@
 // SOFTWARE.
 
 using System;
+using System.CodeDom.Compiler;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 
 namespace Claunia.PropertyList
@@ -46,6 +48,11 @@ namespace Claunia.PropertyList
         /// <summary>The indentation character used for generating the XML output. This is the tabulator character.</summary>
         static readonly string INDENT = "\t";
 
+        protected static IndentedTextWriter CreateIndentedTextWriter(TextWriter writer)
+        {
+            return new IndentedTextWriter(writer, INDENT);
+        }
+
         /// <summary>
         ///     The maximum length of the text lines to be used when generating ASCII property lists. But this number is only
         ///     a guideline it is not guaranteed that it will not be overstepped.
@@ -53,9 +60,8 @@ namespace Claunia.PropertyList
         internal static readonly int ASCII_LINE_LENGTH = 80;
 
         /// <summary>Generates the XML representation of the object (without XML headers or enclosing plist-tags).</summary>
-        /// <param name="xml">The StringBuilder onto which the XML representation is appended.</param>
-        /// <param name="level">The indentation level of the object.</param>
-        internal abstract void ToXml(StringBuilder xml, int level);
+        /// <param name="xml">The IndentedTextWriter onto which the XML representation is appended.</param>
+        internal abstract void ToXml(IndentedTextWriter xml);
 
         /// <summary>Assigns IDs to all the objects in this NSObject subtree.</summary>
         /// <param name="outPlist">The writer object that handles the binary serialization.</param>
@@ -69,18 +75,22 @@ namespace Claunia.PropertyList
         /// <returns>The XML representation of the property list including XML header and doctype information.</returns>
         public string ToXmlPropertyList()
         {
-            var xml = new StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
-            xml.Append(NEWLINE);
-            xml.Append("<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">");
-            xml.Append(NEWLINE);
-            xml.Append("<plist version=\"1.0\">");
-            xml.Append(NEWLINE);
-            ToXml(xml, 0);
-            xml.Append(NEWLINE);
-            xml.Append("</plist>");
-            xml.Append(NEWLINE);
+            var writer = new StringWriter() { NewLine = NEWLINE };
+            ToXmlPropertyList(writer);
+            return writer.ToString();
+        }
 
-            return xml.ToString();
+        /// <summary>Generates a valid XML property list including headers using this object as root.</summary>
+        /// <param name="writer">The TextWriter to write on.</param>
+        public void ToXmlPropertyList(TextWriter writer)
+        {
+            IndentedTextWriter xml = writer as IndentedTextWriter ?? CreateIndentedTextWriter(writer);
+            xml.WriteLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+            xml.WriteLine("<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">");
+            xml.WriteLine("<plist version=\"1.0\">");
+            ToXml(xml);
+            xml.WriteLine();
+            xml.WriteLine("</plist>");
         }
 
         /// <summary>
@@ -88,17 +98,15 @@ namespace Claunia.PropertyList
         ///     newline. Complies with
         ///     https://developer.apple.com/library/mac/#documentation/Cocoa/Conceptual/PropertyLists/OldStylePlists/OldStylePLists.html
         /// </summary>
-        /// <param name="ascii">The StringBuilder onto which the ASCII representation is appended.</param>
-        /// <param name="level">The indentation level of the object.</param>
-        internal abstract void ToASCII(StringBuilder ascii, int level);
+        /// <param name="ascii">The IndentedTextWriter onto which the ASCII representation is appended.</param>
+        internal abstract void ToASCII(IndentedTextWriter ascii);
 
         /// <summary>
         ///     Generates the ASCII representation of this object in the GnuStep format. The generated ASCII representation
         ///     does not end with a newline.
         /// </summary>
-        /// <param name="ascii">The StringBuilder onto which the ASCII representation is appended.</param>
-        /// <param name="level">The indentation level of the object.</param>
-        internal abstract void ToASCIIGnuStep(StringBuilder ascii, int level);
+        /// <param name="ascii">The IndentedTextWriter onto which the ASCII representation is appended.</param>
+        internal abstract void ToASCIIGnuStep(IndentedTextWriter ascii);
 
         /// <summary>
         ///     Helper method that adds correct indentation to the xml output. Calling this method will add <c>level</c>

@@ -1,4 +1,4 @@
-﻿// plist-cil - An open source library to parse and generate property lists for .NET
+// plist-cil - An open source library to parse and generate property lists for .NET
 // Copyright (C) 2015 Natalia Portillo
 //
 // This code is based on:
@@ -24,6 +24,7 @@
 // SOFTWARE.
 
 using System;
+using System.CodeDom.Compiler;
 using System.Globalization;
 using System.Text;
 
@@ -320,36 +321,34 @@ namespace Claunia.PropertyList
             _       => base.ToString()
         };
 
-        internal override void ToXml(StringBuilder xml, int level)
+        internal override void ToXml(IndentedTextWriter xml)
         {
-            Indent(xml, level);
-
             switch(type)
             {
                 case INTEGER:
                 {
-                    xml.Append("<integer>");
-                    xml.Append(ToLong());
-                    xml.Append("</integer>");
+                    xml.Write("<integer>");
+                    xml.Write(ToLong());
+                    xml.Write("</integer>");
 
                     break;
                 }
                 case REAL:
                 {
-                    xml.Append("<real>");
+                    xml.Write("<real>");
 
                     if(doubleValue == 0)
-                        xml.Append("0.0");
+                        xml.Write("0.0");
                     else
-                        xml.Append(ToDouble().ToString("R", CultureInfo.InvariantCulture));
+                        xml.Write(ToDouble().ToString("R", CultureInfo.InvariantCulture));
 
-                    xml.Append("</real>");
+                    xml.Write("</real>");
 
                     break;
                 }
                 case BOOLEAN:
                 {
-                    xml.Append(ToBool() ? "<true/>" : "<false/>");
+                    xml.Write(ToBool() ? "<true/>" : "<false/>");
 
                     break;
                 }
@@ -406,41 +405,37 @@ namespace Claunia.PropertyList
             }
         }
 
-        internal override void ToASCII(StringBuilder ascii, int level)
+        internal override void ToASCII(IndentedTextWriter ascii)
         {
-            Indent(ascii, level);
-
             if(type == BOOLEAN)
-                ascii.Append(boolValue ? "YES" : "NO");
+                ascii.Write(boolValue ? "YES" : "NO");
             else
-                ascii.Append(ToString());
+                ascii.Write(ToString());
         }
 
-        internal override void ToASCIIGnuStep(StringBuilder ascii, int level)
+        internal override void ToASCIIGnuStep(IndentedTextWriter ascii)
         {
-            Indent(ascii, level);
-
             switch(type)
             {
                 case INTEGER:
                 {
-                    ascii.Append("<*I");
-                    ascii.Append(ToString());
-                    ascii.Append(">");
+                    ascii.Write("<*I");
+                    ascii.Write(ToString());
+                    ascii.Write(">");
 
                     break;
                 }
                 case REAL:
                 {
-                    ascii.Append("<*R");
-                    ascii.Append(ToString());
-                    ascii.Append(">");
+                    ascii.Write("<*R");
+                    ascii.Write(ToString());
+                    ascii.Write(">");
 
                     break;
                 }
                 case BOOLEAN:
                 {
-                    ascii.Append(boolValue ? "<*BY>" : "<*BN>");
+                    ascii.Write(boolValue ? "<*BY>" : "<*BN>");
 
                     break;
                 }

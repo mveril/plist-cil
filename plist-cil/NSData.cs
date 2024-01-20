@@ -1,4 +1,4 @@
-﻿// plist-cil - An open source library to parse and generate property lists for .NET
+// plist-cil - An open source library to parse and generate property lists for .NET
 // Copyright (C) 2015 Natalia Portillo
 //
 // This code is based on:
@@ -24,6 +24,7 @@
 // SOFTWARE.
 
 using System;
+using System.CodeDom.Compiler;
 using System.IO;
 using System.Text;
 
@@ -112,23 +113,17 @@ namespace Claunia.PropertyList
             return hash;
         }
 
-        internal override void ToXml(StringBuilder xml, int level)
+        internal override void ToXml(IndentedTextWriter xml)
         {
-            Indent(xml, level);
-            xml.Append("<data>");
-            xml.Append(NEWLINE);
+            xml.WriteLine("<data>");
             string base64 = GetBase64EncodedData();
 
             foreach(string line in base64.Split('\n'))
                 for(int offset = 0; offset < base64.Length; offset += DataLineLength)
                 {
-                    Indent(xml, level);
-                    xml.Append(line.Substring(offset, Math.Min(DataLineLength, line.Length - offset)));
-                    xml.Append(NEWLINE);
+                    xml.WriteLine(line.Substring(offset, Math.Min(DataLineLength, line.Length - offset)));
                 }
-
-            Indent(xml, level);
-            xml.Append("</data>");
+            xml.Write("</data>");
         }
 
         internal override void ToBinary(BinaryPropertyListWriter outPlist)
@@ -137,31 +132,28 @@ namespace Claunia.PropertyList
             outPlist.Write(Bytes);
         }
 
-        internal override void ToASCII(StringBuilder ascii, int level)
+        internal override void ToASCII(IndentedTextWriter ascii)
         {
-            Indent(ascii, level);
-            ascii.Append(ASCIIPropertyListParser.DATA_BEGIN_TOKEN);
-            int indexOfLastNewLine = ascii.ToString().LastIndexOf(NEWLINE, StringComparison.Ordinal);
-
+            CountingTextWriter countingWriter = (CountingTextWriter)ascii.InnerWriter;
+            ascii.Write(ASCIIPropertyListParser.DATA_BEGIN_TOKEN);
             for(int i = 0; i < Bytes.Length; i++)
             {
                 int b = Bytes[i] & 0xFF;
-                ascii.Append($"{b:x2}");
+                ascii.Write($"{b:x2}");
 
-                if(ascii.Length - indexOfLastNewLine > ASCII_LINE_LENGTH)
+                if(countingWriter.CurrentLineCharacterCount > ASCII_LINE_LENGTH)
                 {
-                    ascii.Append(NEWLINE);
-                    indexOfLastNewLine = ascii.Length;
+                    ascii.WriteLine();
                 }
                 else if((i + 1) % 2 == 0 &&
                         i           != Bytes.Length - 1)
-                    ascii.Append(" ");
+                    ascii.Write(" ");
             }
 
-            ascii.Append(ASCIIPropertyListParser.DATA_END_TOKEN);
+            ascii.Write(ASCIIPropertyListParser.DATA_END_TOKEN);
         }
 
-        internal override void ToASCIIGnuStep(StringBuilder ascii, int level) => ToASCII(ascii, level);
+        internal override void ToASCIIGnuStep(IndentedTextWriter ascii) => ToASCII(ascii);
 
         /// <summary>
         ///     Determines whether the specified <see cref="Claunia.PropertyList.NSObject" /> is equal to the current

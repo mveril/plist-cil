@@ -1,4 +1,4 @@
-﻿// plist-cil - An open source library to parse and generate property lists for .NET
+// plist-cil - An open source library to parse and generate property lists for .NET
 // Copyright (C) 2015 Natalia Portillo
 //
 // This code is based on:
@@ -24,6 +24,7 @@
 // SOFTWARE.
 
 using System;
+using System.CodeDom.Compiler;
 using System.Collections;
 using System.Collections.Generic;
 using System.Text;
@@ -231,25 +232,19 @@ namespace Claunia.PropertyList
         ///     Returns the XML representation for this set. There is no official XML representation specified for sets. In
         ///     this implementation it is represented by an array.
         /// </summary>
-        /// <param name="xml">The XML StringBuilder</param>
-        /// <param name="level">The indentation level</param>
-        internal override void ToXml(StringBuilder xml, int level)
+        /// <param name="xml">The XML IndentedTextWriter</param>
+        internal override void ToXml(IndentedTextWriter xml)
         {
-            Indent(xml, level);
-            xml.Append("<array>");
-            xml.Append(NEWLINE);
-
-            if(ordered)
-                set.Sort();
-
+            xml.Write("<array>");
+            xml.Indent++;
             foreach(NSObject o in set)
             {
-                o.ToXml(xml, level + 1);
-                xml.Append(NEWLINE);
+                xml.WriteLine();
+                o.ToXml(xml);
             }
-
-            Indent(xml, level);
-            xml.Append("</array>");
+            xml.Indent--;
+            xml.WriteLine();
+            xml.Write("</array>");
         }
 
         internal override void AssignIDs(BinaryPropertyListWriter outPlist)
@@ -278,18 +273,15 @@ namespace Claunia.PropertyList
         ///     Returns the ASCII representation of this set. There is no official ASCII representation for sets. In this
         ///     implementation sets are represented as arrays.
         /// </summary>
-        /// <param name="ascii">The ASCII file string builder</param>
-        /// <param name="level">The indentation level</param>
-        internal override void ToASCII(StringBuilder ascii, int level)
+        /// <param name="ascii">The ASCII file IndentedTextWriter</param>
+        internal override void ToASCII(IndentedTextWriter ascii)
         {
-            Indent(ascii, level);
-
+            CountingTextWriter countingWriter = (CountingTextWriter)ascii.InnerWriter;
             if(ordered)
                 set.Sort();
 
             NSObject[] array = AllObjects();
-            ascii.Append(ASCIIPropertyListParser.ARRAY_BEGIN_TOKEN);
-            int indexOfLastNewLine = ascii.ToString().LastIndexOf(NEWLINE, StringComparison.Ordinal);
+            ascii.Write(ASCIIPropertyListParser.ARRAY_BEGIN_TOKEN);
 
             for(int i = 0; i < array.Length; i++)
             {
@@ -297,31 +289,29 @@ namespace Claunia.PropertyList
 
                 if((objClass.Equals(typeof(NSDictionary)) || objClass.Equals(typeof(NSArray)) ||
                     objClass.Equals(typeof(NSData))) &&
-                   indexOfLastNewLine != ascii.Length)
+                   countingWriter.CurrentLineCharacterCount != 0)
                 {
-                    ascii.Append(NEWLINE);
-                    indexOfLastNewLine = ascii.Length;
-                    array[i].ToASCII(ascii, level + 1);
+                    ascii.WriteLine();
+                    array[i].ToASCII(ascii);
                 }
                 else
                 {
                     if(i != 0)
-                        ascii.Append(" ");
+                        ascii.Write(" ");
 
-                    array[i].ToASCII(ascii, 0);
+                    array[i].ToASCII(ascii);
                 }
 
                 if(i != array.Length - 1)
-                    ascii.Append(ASCIIPropertyListParser.ARRAY_ITEM_DELIMITER_TOKEN);
+                    ascii.Write(ASCIIPropertyListParser.ARRAY_ITEM_DELIMITER_TOKEN);
 
-                if(ascii.Length - indexOfLastNewLine <= ASCII_LINE_LENGTH)
+                if(countingWriter.CurrentLineCharacterCount <= ASCII_LINE_LENGTH)
                     continue;
 
-                ascii.Append(NEWLINE);
-                indexOfLastNewLine = ascii.Length;
+                ascii.WriteLine();
             }
 
-            ascii.Append(ASCIIPropertyListParser.ARRAY_END_TOKEN);
+            ascii.Write(ASCIIPropertyListParser.ARRAY_END_TOKEN);
         }
 
         /// <summary>
@@ -330,45 +320,45 @@ namespace Claunia.PropertyList
         /// </summary>
         /// <param name="ascii">The ASCII file string builder</param>
         /// <param name="level">The indentation level</param>
-        internal override void ToASCIIGnuStep(StringBuilder ascii, int level)
+        internal override void ToASCIIGnuStep(IndentedTextWriter ascii)
         {
-            Indent(ascii, level);
+            CountingTextWriter countingWriter = (CountingTextWriter)ascii.InnerWriter;
 
             if(ordered)
                 set.Sort();
 
             NSObject[] array = AllObjects();
-            ascii.Append(ASCIIPropertyListParser.ARRAY_BEGIN_TOKEN);
+            ascii.Write(ASCIIPropertyListParser.ARRAY_BEGIN_TOKEN);
             int indexOfLastNewLine = ascii.ToString().LastIndexOf(NEWLINE, StringComparison.Ordinal);
 
             for(int i = 0; i < array.Length; i++)
             {
                 if(array[i] is NSDictionary or NSArray or NSData &&
-                   indexOfLastNewLine != ascii.Length)
+                   countingWriter.CurrentLineCharacterCount != 0)
                 {
-                    ascii.Append(NEWLINE);
-                    indexOfLastNewLine = ascii.Length;
-                    array[i].ToASCIIGnuStep(ascii, level + 1);
+                    ascii.WriteLine();
+                    ascii.Indent++;
+                    array[i].ToASCIIGnuStep(ascii);
+                    ascii.Indent--;
                 }
                 else
                 {
                     if(i != 0)
-                        ascii.Append(" ");
+                        ascii.Write(" ");
 
-                    array[i].ToASCIIGnuStep(ascii, 0);
+                    array[i].ToASCIIGnuStep(ascii);
                 }
 
                 if(i != array.Length - 1)
-                    ascii.Append(ASCIIPropertyListParser.ARRAY_ITEM_DELIMITER_TOKEN);
+                    ascii.Write(ASCIIPropertyListParser.ARRAY_ITEM_DELIMITER_TOKEN);
 
-                if(ascii.Length - indexOfLastNewLine <= ASCII_LINE_LENGTH)
+                if(countingWriter.CurrentLineCharacterCount <= ASCII_LINE_LENGTH)
                     continue;
 
-                ascii.Append(NEWLINE);
-                indexOfLastNewLine = ascii.Length;
+                ascii.WriteLine(NEWLINE);
             }
 
-            ascii.Append(ASCIIPropertyListParser.ARRAY_END_TOKEN);
+            ascii.Write(ASCIIPropertyListParser.ARRAY_END_TOKEN);
         }
 
         /// <summary>

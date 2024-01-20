@@ -1,4 +1,4 @@
-﻿// plist-cil - An open source library to parse and generate property lists for .NET
+// plist-cil - An open source library to parse and generate property lists for .NET
 // Copyright (C) 2015 Natalia Portillo
 //
 // This code is based on:
@@ -24,7 +24,9 @@
 // SOFTWARE.
 
 using System;
+using System.CodeDom.Compiler;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 
 namespace Claunia.PropertyList
@@ -190,20 +192,17 @@ namespace Claunia.PropertyList
             return hash;
         }
 
-        internal override void ToXml(StringBuilder xml, int level)
+        internal override void ToXml(IndentedTextWriter xml)
         {
-            Indent(xml, level);
-            xml.Append("<array>");
-            xml.Append(NEWLINE);
-
+            xml.WriteLine("<array>");
+            xml.Indent++;
             foreach(NSObject o in array)
             {
-                o.ToXml(xml, level + 1);
-                xml.Append(NEWLINE);
+                o.ToXml(xml);
+                xml.WriteLine();
             }
-
-            Indent(xml, level);
-            xml.Append("</array>");
+            xml.Indent--;
+            xml.Write("</array>");
         }
 
         internal override void AssignIDs(BinaryPropertyListWriter outPlist)
@@ -233,11 +232,26 @@ namespace Claunia.PropertyList
         /// <returns>ASCII representation of this object.</returns>
         public string ToASCIIPropertyList()
         {
-            var ascii = new StringBuilder();
-            ToASCII(ascii, 0);
-            ascii.Append(NEWLINE);
+            var writer = new StringWriter() { NewLine = NEWLINE };
+            ToASCIIPropertyList(writer);
+            return writer.ToString();
+        }
 
-            return ascii.ToString();
+        /// <summary>
+        ///     <para>Generates a valid ASCII property list which has this NSArray as its root object.</para>
+        ///     <para>
+        ///         The generated property list complies with the format as described in
+        ///         https://developer.apple.com/library/mac/#documentation/Cocoa/Conceptual/PropertyLists/OldStylePlists/OldStylePLists.html
+        ///         Property List Programming Guide - Old-Style ASCII Property Lists.
+        ///     </para>
+        /// </summary>
+        /// <param name="writer">The TextWriter to write on</param>
+        public void ToASCIIPropertyList(TextWriter writer)
+        {
+            var counting = new CountingTextWriter(writer);
+            var ascii = CreateIndentedTextWriter(counting);
+            ToASCII(ascii);
+            ascii.WriteLine();
         }
 
         /// <summary>
@@ -251,85 +265,95 @@ namespace Claunia.PropertyList
         /// <returns>GnuStep ASCII representation of this object.</returns>
         public string ToGnuStepASCIIPropertyList()
         {
-            var ascii = new StringBuilder();
-            ToASCIIGnuStep(ascii, 0);
-            ascii.Append(NEWLINE);
-
+            var ascii = new StringWriter();
+            ToGnuStepASCIIPropertyList(ascii);
             return ascii.ToString();
         }
 
-        internal override void ToASCII(StringBuilder ascii, int level)
+        /// <summary>
+        ///     <para>Generates a valid ASCII property list in GnuStep format which has this NSArray as its root object.</para>
+        ///     <para>
+        ///         The generated property list complies with the format as described in
+        ///         http://www.gnustep.org/resources/documentation/Developer/Base/Reference/NSPropertyList.html GnuStep -
+        ///         NSPropertyListSerialization class documentation.
+        ///     </para>
+        /// </summary>
+        /// <param name="writer">The TextWriter to write on</param>
+        public void ToGnuStepASCIIPropertyList(TextWriter writer)
         {
-            Indent(ascii, level);
-            ascii.Append(ASCIIPropertyListParser.ARRAY_BEGIN_TOKEN);
-            int indexOfLastNewLine = ascii.ToString().LastIndexOf(NEWLINE, StringComparison.Ordinal);
+            var counting = new CountingTextWriter(writer);
+            var ascii = CreateIndentedTextWriter(counting);
+            ToASCIIGnuStep(ascii);
+            ascii.WriteLine();
+        }
 
+        internal override void ToASCII(IndentedTextWriter ascii)
+        {
+            CountingTextWriter countingWriter = (CountingTextWriter)ascii.InnerWriter;
+            ascii.Write(ASCIIPropertyListParser.ARRAY_BEGIN_TOKEN);
+            ascii.Indent++;
             for(int i = 0; i < array.Count; i++)
             {
                 if((array[i] is NSDictionary || array[i] is NSArray || array[i] is NSData) &&
-                   indexOfLastNewLine != ascii.Length)
+                   countingWriter.CurrentLineCharacterCount != 0)
                 {
-                    ascii.Append(NEWLINE);
-                    indexOfLastNewLine = ascii.Length;
-                    array[i].ToASCII(ascii, level + 1);
+                    ascii.WriteLine();
+                    array[i].ToASCII(ascii);
                 }
                 else
                 {
                     if(i != 0)
-                        ascii.Append(" ");
+                        ascii.Write(" ");
 
-                    array[i].ToASCII(ascii, 0);
+                    array[i].ToASCII(ascii);
                 }
 
                 if(i != array.Count - 1)
-                    ascii.Append(ASCIIPropertyListParser.ARRAY_ITEM_DELIMITER_TOKEN);
+                    ascii.Write(ASCIIPropertyListParser.ARRAY_ITEM_DELIMITER_TOKEN);
 
-                if(ascii.Length - indexOfLastNewLine <= ASCII_LINE_LENGTH)
+                if(countingWriter.CurrentLineCharacterCount > ASCII_LINE_LENGTH)
                     continue;
 
-                ascii.Append(NEWLINE);
-                indexOfLastNewLine = ascii.Length;
+                ascii.WriteLine();
             }
 
-            ascii.Append(ASCIIPropertyListParser.ARRAY_END_TOKEN);
+            ascii.Write(ASCIIPropertyListParser.ARRAY_END_TOKEN);
         }
 
-        internal override void ToASCIIGnuStep(StringBuilder ascii, int level)
+        internal override void ToASCIIGnuStep(IndentedTextWriter ascii)
         {
-            Indent(ascii, level);
-            ascii.Append(ASCIIPropertyListParser.ARRAY_BEGIN_TOKEN);
-            int indexOfLastNewLine = ascii.ToString().LastIndexOf(NEWLINE, StringComparison.Ordinal);
-
+            CountingTextWriter countingWriter = (CountingTextWriter)ascii.InnerWriter;
+            ascii.Write(ASCIIPropertyListParser.ARRAY_BEGIN_TOKEN);
+            
+            ascii.Indent++;
             for(int i = 0; i < array.Count; i++)
             {
                 Type objClass = array[i].GetType();
 
                 if((array[i] is NSDictionary || array[i] is NSArray || array[i] is NSData) &&
-                   indexOfLastNewLine != ascii.Length)
+                   countingWriter.CurrentLineCharacterCount != 0)
                 {
-                    ascii.Append(NEWLINE);
-                    indexOfLastNewLine = ascii.Length;
-                    array[i].ToASCIIGnuStep(ascii, level + 1);
+                    ascii.WriteLine();
+                    array[i].ToASCIIGnuStep(ascii);
                 }
                 else
                 {
                     if(i != 0)
-                        ascii.Append(" ");
+                        ascii.Write(" ");
 
-                    array[i].ToASCIIGnuStep(ascii, 0);
+                    array[i].ToASCIIGnuStep(ascii);
                 }
 
                 if(i != array.Count - 1)
-                    ascii.Append(ASCIIPropertyListParser.ARRAY_ITEM_DELIMITER_TOKEN);
+                    ascii.Write(ASCIIPropertyListParser.ARRAY_ITEM_DELIMITER_TOKEN);
 
-                if(ascii.Length - indexOfLastNewLine <= ASCII_LINE_LENGTH)
+                if(countingWriter.CurrentLineCharacterCount <= ASCII_LINE_LENGTH)
                     continue;
 
-                ascii.Append(NEWLINE);
-                indexOfLastNewLine = ascii.Length;
+                ascii.WriteLine();
             }
-
-            ascii.Append(ASCIIPropertyListParser.ARRAY_END_TOKEN);
+            ascii.Indent--;
+            ascii.Write(ASCIIPropertyListParser.ARRAY_END_TOKEN);
         }
 
         /// <summary>

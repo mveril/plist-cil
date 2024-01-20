@@ -1,4 +1,4 @@
-﻿// plist-cil - An open source library to parse and generate property lists for .NET
+// plist-cil - An open source library to parse and generate property lists for .NET
 // Copyright (C) 2015 Natalia Portillo
 //
 // This code is based on:
@@ -24,6 +24,7 @@
 // SOFTWARE.
 
 using System;
+using System.CodeDom.Compiler;
 using System.Text;
 
 namespace Claunia.PropertyList
@@ -113,10 +114,9 @@ namespace Claunia.PropertyList
         /// <returns>The NSString's contents.</returns>
         public override string ToString() => Content;
 
-        internal override void ToXml(StringBuilder xml, int level)
+        internal override void ToXml(IndentedTextWriter xml)
         {
-            Indent(xml, level);
-            xml.Append("<string>");
+            xml.Write("<string>");
 
             //Make sure that the string is encoded in UTF-8 for the XML output
             lock(typeof(NSString))
@@ -140,14 +140,14 @@ namespace Claunia.PropertyList
                Content.Contains("<") ||
                Content.Contains(">"))
             {
-                xml.Append("<![CDATA[");
-                xml.Append(Content.Replace("]]>", "]]]]><![CDATA[>"));
-                xml.Append("]]>");
+                xml.Write("<![CDATA[");
+                xml.Write(Content.Replace("]]>", "]]]]><![CDATA[>"));
+                xml.Write("]]>");
             }
             else
-                xml.Append(Content);
+                xml.Write(Content);
 
-            xml.Append("</string>");
+            xml.Write("</string>");
         }
 
         internal override void ToBinary(BinaryPropertyListWriter outPlist)
@@ -179,25 +179,23 @@ namespace Claunia.PropertyList
             outPlist.Write(byteBuf);
         }
 
-        internal override void ToASCII(StringBuilder ascii, int level)
+        internal override void ToASCII(IndentedTextWriter ascii)
         {
-            Indent(ascii, level);
-            ascii.Append("\"");
+            ascii.Write("\"");
 
             //According to https://developer.apple.com/library/mac/#documentation/Cocoa/Conceptual/PropertyLists/OldStylePlists/OldStylePLists.html
             //non-ASCII characters are not escaped but simply written into the
             //file, thus actually violating the ASCII plain text format.
             //We will escape the string anyway because current Xcode project files (ASCII property lists) also escape their strings.
-            ascii.Append(EscapeStringForASCII(Content));
-            ascii.Append("\"");
+            ascii.Write(EscapeStringForASCII(Content));
+            ascii.Write("\"");
         }
 
-        internal override void ToASCIIGnuStep(StringBuilder ascii, int level)
+        internal override void ToASCIIGnuStep(IndentedTextWriter ascii)
         {
-            Indent(ascii, level);
-            ascii.Append("\"");
-            ascii.Append(EscapeStringForASCII(Content));
-            ascii.Append("\"");
+            ascii.Write("\"");
+            ascii.Write(EscapeStringForASCII(Content));
+            ascii.Write("\"");
         }
 
         /// <summary>Escapes a string for use in ASCII property lists.</summary>

@@ -1,4 +1,4 @@
-﻿// plist-cil - An open source library to parse and generate property lists for .NET
+// plist-cil - An open source library to parse and generate property lists for .NET
 // Copyright (C) 2015 Natalia Portillo
 //
 // This code is based on:
@@ -241,9 +241,9 @@ namespace Claunia.PropertyList
         /// <exception cref="IOException">When an error occurs during the writing process.</exception>
         public static void SaveAsXml(NSObject root, Stream outStream)
         {
-            using var w = new StreamWriter(outStream, Encoding.UTF8, 1024, true);
+            using var w = new StreamWriter(outStream, Encoding.UTF8, 1024, true) { NewLine = "\n" };
 
-            w.Write(root.ToXmlPropertyList());
+            root.ToXmlPropertyList(w);
         }
 
         /// <summary>Converts a given property list file into the OS X and iOS XML format.</summary>
@@ -316,9 +316,9 @@ namespace Claunia.PropertyList
 
             using Stream fous = outFile.Open(FileMode.OpenOrCreate, FileAccess.ReadWrite);
 
-            using var w = new StreamWriter(fous, Encoding.ASCII);
+            using var w = new StreamWriter(fous, Encoding.ASCII) { NewLine = "\n" };
 
-            w.Write(root.ToASCIIPropertyList());
+            root.ToASCIIPropertyList(w);
         }
 
         /// <summary>Converts a given property list file into ASCII format.</summary>
@@ -350,9 +350,9 @@ namespace Claunia.PropertyList
 
             using Stream fous = outFile.Open(FileMode.OpenOrCreate, FileAccess.ReadWrite);
 
-            using var w = new StreamWriter(fous, Encoding.ASCII);
+            using var w = new StreamWriter(fous, Encoding.ASCII) { NewLine = "\n" };
 
-            w.Write(root.ToGnuStepASCIIPropertyList());
+            root.ToGnuStepASCIIPropertyList(w);
         }
 
         /// <summary>Saves a property list with the given object as root into a GnuStep ASCII file.</summary>
@@ -368,9 +368,9 @@ namespace Claunia.PropertyList
 
             using Stream fous = outFile.Open(FileMode.OpenOrCreate, FileAccess.ReadWrite);
 
-            using var w = new StreamWriter(fous, Encoding.ASCII);
+            using var w = new StreamWriter(fous, Encoding.ASCII) { NewLine = "\n" };
 
-            w.Write(root.ToGnuStepASCIIPropertyList());
+            root.ToGnuStepASCIIPropertyList(w);
         }
 
         /// <summary>Converts a given property list file into GnuStep ASCII format.</summary>

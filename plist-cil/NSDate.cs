@@ -1,4 +1,4 @@
-﻿// plist-cil - An open source library to parse and generate property lists for .NET
+// plist-cil - An open source library to parse and generate property lists for .NET
 // Copyright (C) 2015 Natalia Portillo
 //
 // This code is based on:
@@ -24,6 +24,7 @@
 // SOFTWARE.
 
 using System;
+using System.CodeDom.Compiler;
 using System.Globalization;
 using System.Text;
 
@@ -114,12 +115,11 @@ namespace Claunia.PropertyList
         /// </returns>
         public override int GetHashCode() => Date.GetHashCode();
 
-        internal override void ToXml(StringBuilder xml, int level)
+        internal override void ToXml(IndentedTextWriter xml)
         {
-            Indent(xml, level);
-            xml.Append("<date>");
-            xml.Append(MakeDateString(Date));
-            xml.Append("</date>");
+            xml.Write("<date>");
+            xml.Write(MakeDateString(Date));
+            xml.Write("</date>");
         }
 
         internal override void ToBinary(BinaryPropertyListWriter outPlist)
@@ -132,20 +132,18 @@ namespace Claunia.PropertyList
         /// <returns>A string representation of the date.</returns>
         public override string ToString() => Date.ToString();
 
-        internal override void ToASCII(StringBuilder ascii, int level)
+        internal override void ToASCII(IndentedTextWriter ascii)
         {
-            Indent(ascii, level);
-            ascii.Append("\"");
-            ascii.Append(MakeDateString(Date));
-            ascii.Append("\"");
+            ascii.Write("\"");
+            ascii.Write(MakeDateString(Date));
+            ascii.Write("\"");
         }
 
-        internal override void ToASCIIGnuStep(StringBuilder ascii, int level)
+        internal override void ToASCIIGnuStep(IndentedTextWriter ascii)
         {
-            Indent(ascii, level);
-            ascii.Append("<*D");
-            ascii.Append(MakeDateStringGnuStep(Date));
-            ascii.Append(">");
+            ascii.Write("<*D");
+            ascii.Write(MakeDateStringGnuStep(Date));
+            ascii.Write(">");
         }
 
         /// <summary>
